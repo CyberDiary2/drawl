@@ -187,7 +187,7 @@ def bar_chart(rows, label_key, count_key, max_val, link_param=None):
     return "\n".join(out)
 
 
-def build_where(q="", ip="", port=None, service="", status=None, tag=""):
+def build_where(q="", ip="", port=None, service="", status=None, tag="", hostname=""):
     clauses, params = [], []
     if ip:
         if "/" in ip:
@@ -206,6 +206,11 @@ def build_where(q="", ip="", port=None, service="", status=None, tag=""):
     if status is not None:
         clauses.append("http_status = ?")
         params.append(status)
+    if hostname:
+        # support wildcards: *.example.com -> %.example.com
+        pattern = hostname.replace("*", "%")
+        clauses.append("(hostname LIKE ? OR tls_cn LIKE ? OR tls_domains LIKE ?)")
+        params.extend([pattern, pattern, f"%{pattern}%"])
     where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
     return where, params
 
@@ -224,14 +229,15 @@ def host_rows(rows, tag_map=None):
             tags_html = " ".join(pill(t["tag"], t["severity"]) for t in host_tags[:3])
             if len(host_tags) > 3:
                 tags_html += f'<span class="dim">+{len(host_tags)-3}</span>'
+        hostname_display = r.get('hostname') or r.get('tls_cn') or ''
         out.append(f"""<tr>
           <td class="ip"><a href="/host/{r['ip']}">{r['ip']}</a></td>
+          <td class="dim truncate" title="{hostname_display}">{hostname_display[:35]}</td>
           <td class="port">{r['port']}</td>
           <td class="svc">{r.get('service') or ''}</td>
           <td class="{sc_class(sc)}">{sc or ''}</td>
           <td><span class="truncate" title="{r.get('http_title') or ''}">{(r.get('http_title') or '')[:50]}</span></td>
           <td class="dim truncate">{(r.get('server_header') or '')[:35]}</td>
-          <td class="dim truncate">{(r.get('tls_cn') or '')[:35]}</td>
           <td>{tags_html}</td>
           <td class="dim">{(r.get('last_seen') or '')[:10]}</td>
         </tr>""")
@@ -371,6 +377,7 @@ def search_page(
     service: str = "",
     status: str = "",
     tag: str = "",
+    hostname: str = "",
     page: int = 1,
 ):
     port = int(port) if port.strip() else None
@@ -378,7 +385,7 @@ def search_page(
     conn = db()
     page_size = 50
     offset = (page - 1) * page_size
-    where, params = build_where(q=q, ip=ip, port=port, service=service, status=status)
+    where, params = build_where(q=q, ip=ip, port=port, service=service, status=status, hostname=hostname)
 
     # Tag filter — join to tags table
     if tag:
@@ -433,7 +440,7 @@ def search_page(
     pages = math.ceil(total / page_size) if total else 1
 
     def plink(p):
-        return f"?q={q}&ip={ip}&port={port or ''}&service={service}&status={status or ''}&tag={tag}&page={p}"
+        return f"?q={q}&ip={ip}&hostname={hostname}&port={port or ''}&service={service}&status={status or ''}&tag={tag}&page={p}"
 
     pagination = ""
     if page > 1:
@@ -446,7 +453,8 @@ def search_page(
 <div class="container">
   <div class="search-bar">
     <input type="text" id="q" placeholder='nginx, "index of /", CVE-2021...' value="{q}">
-    <input type="text" id="ip" placeholder="1.2.3.4 or CIDR" value="{ip}" style="width:180px">
+    <input type="text" id="ip" placeholder="1.2.3.4 or CIDR" value="{ip}" style="width:150px">
+    <input type="text" id="hostname" placeholder="*.example.com" value="{hostname}" style="width:180px">
     <select id="port"><option value="">all ports</option>{port_opts}</select>
     <select id="service"><option value="">all services</option>{service_opts}</select>
     <select id="status"><option value="">all status</option>{status_opts}</select>
@@ -456,8 +464,8 @@ def search_page(
   <div style="overflow-x:auto">
   <table>
     <thead><tr>
-      <th>ip</th><th>port</th><th>service</th><th>status</th>
-      <th>title</th><th>server</th><th>tls/cn</th><th>tags</th><th>last seen</th>
+      <th>ip</th><th>hostname</th><th>port</th><th>service</th><th>status</th>
+      <th>title</th><th>server</th><th>tags</th><th>last seen</th>
     </tr></thead>
     <tbody>{host_rows(rows, tag_map)}</tbody>
   </table>
@@ -469,6 +477,7 @@ function dosearch() {{
   const p = new URLSearchParams({{
     q: document.getElementById('q').value,
     ip: document.getElementById('ip').value,
+    hostname: document.getElementById('hostname').value,
     port: document.getElementById('port').value,
     service: document.getElementById('service').value,
     status: document.getElementById('status').value,
@@ -478,6 +487,7 @@ function dosearch() {{
   window.location.href = '/search?' + p.toString();
 }}
 document.getElementById('q').addEventListener('keydown', e => {{ if(e.key==='Enter') dosearch(); }});
+document.getElementById('hostname').addEventListener('keydown', e => {{ if(e.key==='Enter') dosearch(); }});
 </script>
 """
     return HTMLResponse(render_page("search", body, active="search"))

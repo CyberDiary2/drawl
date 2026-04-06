@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS hosts (
     tls_domains     TEXT,       -- comma-separated SANs
     ssh_version     TEXT,
     response_hash   TEXT,
+    hostname        TEXT,
     last_seen       TEXT NOT NULL,
     PRIMARY KEY (ip, port)
 );
@@ -94,6 +95,10 @@ END;
 def init_db(path: str | Path = DB_PATH):
     with get_conn(path) as conn:
         conn.executescript(SCHEMA)
+        # migrate: add hostname column if missing
+        cols = [r[1] for r in conn.execute("PRAGMA table_info(hosts)").fetchall()]
+        if "hostname" not in cols:
+            conn.execute("ALTER TABLE hosts ADD COLUMN hostname TEXT")
     print(f"[drawl] database ready: {path}")
 
 

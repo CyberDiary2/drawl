@@ -29,4 +29,7 @@ venv/bin/python3 -m drawl.ingest "$DATA_DIR/banners.jsonl"
 echo "[drawl] tagging CVEs..."
 venv/bin/python3 -m drawl.cves "$DB"
 
+echo "[drawl] resolving hostnames..."
+venv/bin/python3 -m drawl.rdns
+
 echo "[drawl] done. $(wc -l < "$DATA_DIR/banners.jsonl") banners grabbed."

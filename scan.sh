@@ -50,6 +50,9 @@ echo "[drawl] ingesting into database..."
 python3 -m drawl.ingest "$DATA_DIR/banners.jsonl"
 
 echo "[drawl] tagging hosts with CVE signatures..."
-python3 -m drawl.cves "$DB"
+venv/bin/python3 -m drawl.cves "$DB"
+
+echo "[drawl] resolving hostnames..."
+venv/bin/python3 -m drawl.rdns
 
 echo "[drawl] scan complete. DB: $DB"
