@@ -406,10 +406,10 @@ def search_page(
         """, fts_params_full).fetchone()[0]
     else:
         rows = conn.execute(
-            f"SELECT * FROM hosts {tag_where} ORDER BY last_seen DESC LIMIT {page_size} OFFSET {offset}",
+            f"SELECT h.* FROM hosts h {tag_where} ORDER BY h.last_seen DESC LIMIT {page_size} OFFSET {offset}",
             tag_params
         ).fetchall()
-        total = conn.execute(f"SELECT COUNT(*) FROM hosts {tag_where}", tag_params).fetchone()[0]
+        total = conn.execute(f"SELECT COUNT(*) FROM hosts h {tag_where}", tag_params).fetchone()[0]
 
     tag_map = fetch_tags_for(conn, rows)
 
