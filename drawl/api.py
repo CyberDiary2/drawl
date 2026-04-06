@@ -421,10 +421,29 @@ def search_page(
     tag_map = fetch_tags_for(conn, rows)
 
     # Dropdowns
-    ports    = [r[0] for r in conn.execute("SELECT DISTINCT port FROM hosts ORDER BY port").fetchall()]
+    ALL_PORTS = sorted(set([
+        21, 22, 80, 443, 3000, 3306, 4000, 4243, 4848, 5000, 5432, 5601,
+        6379, 7001, 7080, 7443, 8000, 8001, 8008, 8080, 8090, 8161, 8443,
+        8888, 8983, 9000, 9090, 9200, 10000, 27017,
+    ]))
+    db_ports = {r[0] for r in conn.execute("SELECT DISTINCT port FROM hosts ORDER BY port").fetchall()}
+    ports    = sorted(set(ALL_PORTS) | db_ports)
     services = [r[0] for r in conn.execute("SELECT DISTINCT service FROM hosts WHERE service IS NOT NULL ORDER BY service").fetchall()]
     all_tags = [r[0] for r in conn.execute("SELECT DISTINCT tag FROM tags ORDER BY tag").fetchall()]
     conn.close()
+
+    PORT_LABELS = {
+        21: "21 ftp", 22: "22 ssh", 80: "80 http", 443: "443 https",
+        3000: "3000 grafana", 3306: "3306 mysql", 4000: "4000 alt",
+        4243: "4243 docker", 4848: "4848 glassfish", 5000: "5000 alt",
+        5432: "5432 postgres", 5601: "5601 kibana", 6379: "6379 redis",
+        7001: "7001 weblogic", 7080: "7080 alt", 7443: "7443 alt",
+        8000: "8000 alt", 8001: "8001 alt", 8008: "8008 alt",
+        8080: "8080 http-alt", 8090: "8090 alt", 8161: "8161 activemq",
+        8443: "8443 https-alt", 8888: "8888 jupyter", 8983: "8983 solr",
+        9000: "9000 alt", 9090: "9090 prometheus", 9200: "9200 elasticsearch",
+        10000: "10000 webmin", 27017: "27017 mongodb",
+    }
 
     STATUS_OPTS = [200, 301, 302, 401, 403, 404, 500]
 
@@ -432,7 +451,7 @@ def search_page(
         sel = 'selected' if str(current) == str(val) else ''
         return f'<option value="{val}" {sel}>{label or val}</option>'
 
-    port_opts    = "\n".join(opt(p, port or "") for p in ports)
+    port_opts    = "\n".join(opt(p, port or "", label=PORT_LABELS.get(p, str(p))) for p in ports)
     service_opts = "\n".join(opt(s, service) for s in services)
     status_opts  = "\n".join(opt(s, status or "") for s in STATUS_OPTS)
     tag_opts     = "\n".join(opt(t, tag) for t in all_tags)
