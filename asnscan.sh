@@ -13,44 +13,28 @@ fi
 
 # if given an ASN directly, skip search
 if [[ "$QUERY" =~ ^[Aa][Ss][0-9]+$ ]]; then
-    ASN="${QUERY^^}"
-    ASN_NUM="${ASN:2}"
+    ASN_NUM="${QUERY^^}"
+    ASN_NUM="${ASN_NUM:2}"
 else
     echo "[asnscan] searching for: $QUERY"
-    RESULTS=$(curl -s "https://api.bgpview.io/search?query=$(python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1]))" "$QUERY")")
-    COUNT=$(echo "$RESULTS" | python3 -c "import json,sys; d=json.load(sys.stdin); print(len(d['data']['asns']))")
+    RESULTS=$(curl -s "https://api.hackertarget.com/aslookup/?q=$(python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1]))" "$QUERY")")
 
-    if [ "$COUNT" -eq 0 ]; then
-        echo "[asnscan] no ASNs found for: $QUERY"
+    if [ -z "$RESULTS" ] || echo "$RESULTS" | grep -q "error\|API count"; then
+        echo "[asnscan] no results found for: $QUERY"
+        echo "$RESULTS"
         exit 1
     fi
 
     echo ""
-    echo "$RESULTS" | python3 -c "
-import json,sys
-d=json.load(sys.stdin)
-for i,a in enumerate(d['data']['asns']):
-    print(f\"  [{i}] AS{a['asn']} — {a['name']} — {a.get('description','')}\")
-"
+    echo "$RESULTS" | nl -v0 | sed 's/^\s*\([0-9]*\)\s*/  [\1] /'
     echo ""
-    read -rp "select ASN number [0]: " IDX
+    read -rp "select entry number [0]: " IDX
     IDX="${IDX:-0}"
-
-    ASN_NUM=$(echo "$RESULTS" | python3 -c "
-import json,sys
-d=json.load(sys.stdin)
-print(d['data']['asns'][$IDX]['asn'])
-")
+    ASN_NUM=$(echo "$RESULTS" | sed -n "$((IDX+1))p" | grep -oP '^\d+')
 fi
 
 echo "[asnscan] fetching prefixes for AS${ASN_NUM}..."
-PREFIXES=$(curl -s "https://api.bgpview.io/asn/${ASN_NUM}/prefixes")
-CIDR_LIST=$(echo "$PREFIXES" | python3 -c "
-import json,sys
-d=json.load(sys.stdin)
-for p in d['data']['ipv4_prefixes']:
-    print(p['prefix'])
-")
+CIDR_LIST=$(curl -s "https://api.hackertarget.com/aslookup/?q=AS${ASN_NUM}" | grep -oP '\d+\.\d+\.\d+\.\d+/\d+')
 
 COUNT=$(echo "$CIDR_LIST" | grep -c '.' || true)
 if [ "$COUNT" -eq 0 ]; then
@@ -63,14 +47,13 @@ echo "$CIDR_LIST" | sed 's/^/  /'
 echo ""
 read -rp "start scanning all $COUNT ranges? [y/N]: " CONFIRM
 if [[ "${CONFIRM,,}" != "y" ]]; then
-    echo "[asnscan] saving ranges to /tmp/as${ASN_NUM}_ranges.txt"
     echo "$CIDR_LIST" > "/tmp/as${ASN_NUM}_ranges.txt"
-    echo "[asnscan] run manually: while read c; do ./scan.sh \"\$c\"; done < /tmp/as${ASN_NUM}_ranges.txt"
+    echo "[asnscan] saved to /tmp/as${ASN_NUM}_ranges.txt"
+    echo "[asnscan] run: cat /tmp/as${ASN_NUM}_ranges.txt | tr '\n' ' ' | xargs -I{} ./scan.sh {}"
     exit 0
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TOTAL=0
 DONE=0
 
 while IFS= read -r cidr; do
