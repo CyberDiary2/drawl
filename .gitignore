@@ -1,0 +1,12 @@
+*.db
+*.db-shm
+*.db-wal
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.env
+data/
+*.json
+*.jsonl
+*.txt.bak
