@@ -207,10 +207,13 @@ def build_where(q="", ip="", port=None, service="", status=None, tag="", hostnam
         clauses.append("http_status = ?")
         params.append(status)
     if hostname:
-        # support wildcards: *.example.com -> %.example.com
-        pattern = hostname.replace("*", "%")
-        clauses.append("(hostname LIKE ? OR tls_cn LIKE ? OR tls_domains LIKE ?)")
-        params.extend([pattern, pattern, f"%{pattern}%"])
+        # support wildcards, otherwise auto-wrap with %
+        if "*" in hostname or "%" in hostname:
+            pattern = hostname.replace("*", "%")
+        else:
+            pattern = f"%{hostname}%"
+        clauses.append("(hostname LIKE ? OR tls_cn LIKE ? OR tls_domains LIKE ? OR http_title LIKE ? OR banner LIKE ?)")
+        params.extend([pattern, pattern, pattern, pattern, pattern])
     where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
     return where, params
 
@@ -473,7 +476,7 @@ def search_page(
   <div class="search-bar">
     <input type="text" id="q" placeholder='nginx, "index of /", CVE-2021...' value="{q}">
     <input type="text" id="ip" placeholder="1.2.3.4 or CIDR" value="{ip}" style="width:150px">
-    <input type="text" id="hostname" placeholder="*.example.com" value="{hostname}" style="width:180px">
+    <input type="text" id="hostname" placeholder="hostname / company" value="{hostname}" style="width:180px">
     <select id="port"><option value="">all ports</option>{port_opts}</select>
     <select id="service"><option value="">all services</option>{service_opts}</select>
     <select id="status"><option value="">all status</option>{status_opts}</select>
