@@ -37,7 +37,7 @@ for port_module in "80:http" "443:http" "8080:http" "8443:http" "22:ssh" "3306:m
   targets=$(grep ":${port}$" "$DATA_DIR/targets.txt" || true)
   if [ -n "$targets" ]; then
     echo "[drawl] grabbing banners on port $port ($module)..."
-    echo "$targets" | zgrab2 "$module" --port "$port" --goroutines 100 \
+    echo "$targets" | cut -d: -f1 | zgrab2 "$module" --port "$port" --goroutines 100 \
       >> "$DATA_DIR/banners.jsonl" 2>/dev/null || true
   fi
 done
