@@ -1,0 +1,12 @@
+[Unit]
+Description=drawl web UI
+After=network.target
+
+[Service]
+User=root
+WorkingDirectory=/opt/drawl
+ExecStart=/opt/drawl/venv/bin/uvicorn drawl.api:app --host 127.0.0.1 --port 8000
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
