@@ -16,7 +16,7 @@ for port_module in "80:http" "443:http" "8080:http" "8443:http" "22:ssh" "3306:m
   count=$(wc -l < "$TMPFILE")
   if [ "$count" -gt 0 ]; then
     echo "[drawl] grabbing banners on port $port ($module) — $count targets..."
-    zgrab2 "$module" --port "$port" --goroutines 100 --input-file "$TMPFILE" \
+    zgrab2 "$module" --port "$port" --senders 100 --input-file "$TMPFILE" \
       >> "$DATA_DIR/banners.jsonl" || true
   fi
 done
