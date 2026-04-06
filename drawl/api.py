@@ -295,6 +295,7 @@ def dashboard():
           <td class="dim">{r['description']}</td>
           <td style="text-align:right;color:#555">{r['n']:,}</td>
         </tr>"""
+    cve_table = '<div class="none">run python -m drawl.cves to tag hosts</div>' if not top_cves else f"<table><tbody>{cve_rows}</tbody></table>"
 
     body = f"""
 <div class="container">
@@ -337,7 +338,7 @@ def dashboard():
     </div>
     <div class="card">
       <h3>cve / misconfiguration hits</h3>
-      {'<div class="none">run python -m drawl.cves to tag hosts</div>' if not top_cves else f'<table><tbody>{cve_rows}</tbody></table>'}
+      {cve_table}
     </div>
   </div>
 
@@ -522,16 +523,15 @@ def cve_page(severity: str = ""):
           </td>
         </tr>"""
 
+    if not tags:
+        tags_content = '<div class="none">no tags found — run: python -m drawl.cves</div>'
+    else:
+        tags_content = f"<table><thead><tr><th>tag / cve</th><th>severity</th><th>description</th><th style='text-align:right'>hits</th></tr></thead><tbody>{rows}</tbody></table>"
+
     body = f"""
 <div class="container">
   <div style="margin-bottom:16px;color:#555;font-size:13px">{sev_nav}</div>
-  {'<div class="none">no tags found — run: python -m drawl.cves</div>' if not tags else f"""
-  <table>
-    <thead><tr>
-      <th>tag / cve</th><th>severity</th><th>description</th><th style="text-align:right">hits</th>
-    </tr></thead>
-    <tbody>{rows}</tbody>
-  </table>"""}
+  {tags_content}
 </div>
 """
     return HTMLResponse(render_page("cve tags", body, active="cve"))
@@ -576,6 +576,11 @@ def host_page(ip: str):
           <td class="dim truncate" title="{t.get('matched_value') or ''}">{(t.get('matched_value') or '')[:80]}</td>
         </tr>"""
 
+    if not tag_rows:
+        tag_card = '<div class="card"><h3>tags / cve matches</h3><div class="none" style="padding:16px">no tags</div></div>'
+    else:
+        tag_card = f'<div class="card"><h3>tags / cve matches</h3><div style="overflow-x:auto;margin-top:8px"><table><thead><tr><th>tag</th><th>severity</th><th>description</th><th>field</th><th>value</th></tr></thead><tbody>{tag_rows}</tbody></table></div></div>'
+
     body = f"""
 <div class="container">
   <h2 style="color:#4fc3f7;margin-bottom:16px">{ip}</h2>
@@ -593,7 +598,7 @@ def host_page(ip: str):
     </div>
   </div>
 
-  {'<div class="card"><h3>tags / cve matches</h3>' + ('<div class="none" style="padding:16px">no tags</div>' if not tag_rows else f'<div style="overflow-x:auto;margin-top:8px"><table><thead><tr><th>tag</th><th>severity</th><th>description</th><th>field</th><th>value</th></tr></thead><tbody>' + tag_rows + '</tbody></table></div>') + '</div>'}
+  {tag_card}
 </div>
 """
     return HTMLResponse(render_page(ip, body, active="search"))
