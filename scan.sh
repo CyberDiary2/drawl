@@ -30,17 +30,21 @@ echo "[drawl] $TARGET_COUNT open ports found, starting banner grab..."
 
 # Phase 2: banner grabbing — run per-protocol and merge
 > "$DATA_DIR/banners.jsonl"
+TMPFILE=$(mktemp)
 
 for port_module in "80:http" "443:http" "8080:http" "8443:http" "22:ssh" "3306:mysql" "6379:redis" "9200:http" "21:ftp" "5432:postgres" "27017:mongodb"; do
   port="${port_module%%:*}"
   module="${port_module##*:}"
-  targets=$(grep ":${port}$" "$DATA_DIR/targets.txt" || true)
-  if [ -n "$targets" ]; then
-    echo "[drawl] grabbing banners on port $port ($module)..."
-    echo "$targets" | cut -d: -f1 | zgrab2 "$module" --port "$port" --goroutines 100 \
+  grep ":${port}$" "$DATA_DIR/targets.txt" | cut -d: -f1 > "$TMPFILE" || true
+  count=$(wc -l < "$TMPFILE")
+  if [ "$count" -gt 0 ]; then
+    echo "[drawl] grabbing banners on port $port ($module) — $count targets..."
+    zgrab2 "$module" --port "$port" --goroutines 100 --input-file "$TMPFILE" \
       >> "$DATA_DIR/banners.jsonl" 2>/dev/null || true
   fi
 done
+
+rm -f "$TMPFILE"
 
 echo "[drawl] ingesting into database..."
 python3 -m drawl.ingest "$DATA_DIR/banners.jsonl"
