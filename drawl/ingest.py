@@ -87,6 +87,13 @@ def parse_record(line: str) -> dict | None:
 
     ip = entry.get("ip")
     port = entry.get("port")
+    # zgrab2 embeds port inside data.<module>.port when not at top level
+    if not port and entry.get("data"):
+        for module_data in entry["data"].values():
+            if isinstance(module_data, dict):
+                port = module_data.get("port")
+                if port:
+                    break
     if not ip or not port:
         return None
 
