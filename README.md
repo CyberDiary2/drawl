@@ -101,6 +101,43 @@ Or use the all-in-one scan script:
 
 ---
 
+## Pausing and Resuming a Scan
+
+**masscan** saves state automatically when you press `Ctrl+C`:
+
+```bash
+# pause — just press Ctrl+C while masscan is running
+# it writes paused.conf automatically
+
+# resume from where it left off
+masscan --resume paused.conf
+```
+
+**zgrab2** has no built-in resume, but you can skip already-ingested IPs before re-running:
+
+```bash
+# generate a targets file with only IPs not yet in the database
+python3 - << 'EOF'
+import sqlite3
+conn = sqlite3.connect("drawl.db")
+done = {row[0] for row in conn.execute("SELECT DISTINCT ip FROM hosts")}
+with open("data/targets.txt") as f:
+    remaining = [l for l in f if l.split(":")[0].strip() not in done]
+with open("data/targets_remaining.txt", "w") as f:
+    f.writelines(remaining)
+print(f"{len(remaining)} targets remaining")
+EOF
+
+zgrab2 multiple --config zgrab.ini \
+  --input-file data/targets_remaining.txt \
+  --output-file data/banners.jsonl \
+  --goroutines 500
+```
+
+**Ingest is always safe to re-run** — duplicate records are automatically updated, not duplicated.
+
+---
+
 ## Web UI
 
 | Page | URL | Description |
