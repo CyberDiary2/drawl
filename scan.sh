@@ -28,12 +28,19 @@ python3 -m drawl.parse_masscan "$DATA_DIR/open_ports.json" > "$DATA_DIR/targets.
 TARGET_COUNT=$(wc -l < "$DATA_DIR/targets.txt")
 echo "[drawl] $TARGET_COUNT open ports found, starting banner grab..."
 
-# Phase 2: banner grabbing
-zgrab2 multiple \
-  --config "$ZGRAB_CONFIG" \
-  --input-file "$DATA_DIR/targets.txt" \
-  --output-file "$DATA_DIR/banners.jsonl" \
-  --goroutines 500
+# Phase 2: banner grabbing — run per-protocol and merge
+> "$DATA_DIR/banners.jsonl"
+
+for port_module in "80:http" "443:http" "8080:http" "8443:http" "22:ssh" "3306:mysql" "6379:redis" "9200:http" "21:ftp" "5432:postgres" "27017:mongodb"; do
+  port="${port_module%%:*}"
+  module="${port_module##*:}"
+  targets=$(grep ":${port}$" "$DATA_DIR/targets.txt" || true)
+  if [ -n "$targets" ]; then
+    echo "[drawl] grabbing banners on port $port ($module)..."
+    echo "$targets" | zgrab2 "$module" --port "$port" --goroutines 100 \
+      >> "$DATA_DIR/banners.jsonl" 2>/dev/null || true
+  fi
+done
 
 echo "[drawl] ingesting into database..."
 python3 -m drawl.ingest "$DATA_DIR/banners.jsonl"
